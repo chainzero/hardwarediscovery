@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: clientfeaturediscovery-sa
+  namespace: akash-services
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: clientfeaturediscovery-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["daemonsets"]
+  verbs: ["get", "list", "watch"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: clientfeaturediscovery-binding
+subjects:
+- kind: ServiceAccount
+  name: clientfeaturediscovery-sa
+  namespace: akash-services
+roleRef:
+  kind: ClusterRole
+  name: clientfeaturediscovery-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clientfeaturediscovery
+  namespace: akash-services
+  labels:
+    app: clientfeaturediscovery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clientfeaturediscovery
+  template:
+    metadata:
+      labels:
+        app: clientfeaturediscovery
+    spec:
+      serviceAccountName: clientfeaturediscovery-sa
+      containers:
+      - name: clientfeaturediscovery
+        image: scarruthers/clientfeaturediscovery:v29
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: clientfeaturediscovery-service
+  namespace: akash-services
+spec:
+  selector:
+    app: clientfeaturediscovery
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: clientfeaturediscovery-ingress
+  namespace: akash-services
+spec:
+  ingressClassName: akash-ingress-class
+  rules:
+  - http:
+      paths:
+      - path: /features
+        pathType: Prefix
+        backend:
+          service:
+            name: clientfeaturediscovery-service
+            port:
+              number: 8080
+
+
